@@ -156,7 +156,27 @@ async function initLeaderboard() {
 
 // Simple CSV Parser with Dynamic Column Resolution
 function parseCSV(text) {
-    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    const lines = [];
+    let currentLine = '';
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        if (char === '"' || char === "'") {
+            inQuotes = !inQuotes;
+            currentLine += char;
+        } else if ((char === '\n' || char === '\r') && !inQuotes) {
+            if (currentLine.trim().length > 0) {
+                lines.push(currentLine.trim());
+            }
+            currentLine = '';
+        } else {
+            currentLine += char;
+        }
+    }
+    if (currentLine.trim().length > 0) {
+        lines.push(currentLine.trim());
+    }
+
     if (lines.length <= 5) return [];
 
     const headers = splitCSVLine(lines[4]).map(h => h.trim().toLowerCase());
@@ -172,6 +192,16 @@ function parseCSV(text) {
         profitLossIdx = headers.findIndex(h => h.includes('profit') || h.includes('loss'));
     }
     if (profitLossIdx === -1) profitLossIdx = 101; // Old fallback
+
+    let stageBetsIdx = headers.indexOf('# of stage bets');
+    if (stageBetsIdx === -1) {
+        stageBetsIdx = headers.findIndex(h => h.includes('stage') && h.includes('bet'));
+    }
+    
+    let group32Idx = headers.indexOf('group of 32');
+    if (group32Idx === -1) {
+        group32Idx = headers.findIndex(h => h.includes('group') && h.includes('32'));
+    }
 
     let totalBetsIdx = headers.indexOf('# of bets');
     if (totalBetsIdx === -1) {
@@ -217,8 +247,16 @@ function parseCSV(text) {
 
         const points = parseFloat(rawPoints) || 0;
 
-        // Calculate won and total predictions
-        let totalPredictions = parseInt(cols[totalBetsIdx]) || 0;
+        // Calculate total predictions: sum of stage bets + group of 32
+        let totalPredictions = 0;
+        if (stageBetsIdx !== -1 || group32Idx !== -1) {
+            const stageBets = stageBetsIdx !== -1 ? (parseInt(cols[stageBetsIdx]) || 0) : 0;
+            const group32 = group32Idx !== -1 ? (parseInt(cols[group32Idx]) || 0) : 0;
+            totalPredictions = stageBets + group32;
+        } else {
+            totalPredictions = parseInt(cols[totalBetsIdx]) || 0;
+        }
+
         let wonPredictions = 0;
 
         // Calculate won predictions by checking payout columns (odd indices starting at 3 up to firstSummaryIdx - 1)
