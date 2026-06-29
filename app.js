@@ -154,8 +154,7 @@ async function initLeaderboard() {
     await loadData();
 }
 
-// Simple CSV Parser with Dynamic Column Resolution
-function parseCSV(text) {
+function splitCSVTextIntoLines(text) {
     const lines = [];
     let currentLine = '';
     let inQuotes = false;
@@ -176,7 +175,12 @@ function parseCSV(text) {
     if (currentLine.trim().length > 0) {
         lines.push(currentLine.trim());
     }
+    return lines;
+}
 
+// Simple CSV Parser with Dynamic Column Resolution
+function parseCSV(text) {
+    const lines = splitCSVTextIntoLines(text);
     if (lines.length <= 5) return [];
 
     const headers = splitCSVLine(lines[4]).map(h => h.trim().toLowerCase());
@@ -412,7 +416,7 @@ function getFlag(countryName) {
 }
 
 function extractUpcomingMatches(csvText) {
-    const lines = csvText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    const lines = splitCSVTextIntoLines(csvText);
     if (lines.length <= 5) return [];
 
     const matchesLine = lines[3]; // Row 4 (0-indexed 3)
@@ -433,7 +437,7 @@ function extractUpcomingMatches(csvText) {
     if (firstSummaryIdx === -1) firstSummaryIdx = 98; // Fallback
 
     const upcoming = [];
-    for (let j = 2; j < firstSummaryIdx; j += 2) {
+    for (let j = 3; j < firstSummaryIdx; j += 2) {
         const resultVal = resultCols[j];
         if (!resultVal || resultVal.trim() === '') {
             const matchStr = matchCols[j];
